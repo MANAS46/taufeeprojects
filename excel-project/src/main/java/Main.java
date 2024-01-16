@@ -1,57 +1,50 @@
-import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.usermodel.CellCopyPolicy;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFRow;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
-import static java.util.Comparator.reverseOrder;
+import static java.util.stream.IntStream.range;
 
 public class Main {
 
     public static void main(String[] args) {
         Workbook workbook = WorkbookUtils.getWorkbook();
-        Sheet sheet = workbook.getSheetAt(0);
-        List<Integer> approvedRow = new ArrayList<>();
-        Integer statusAddress = WorkbookUtils.getStatusAddress(sheet);
-        if (statusAddress == null) {
-            throw new RuntimeException(WorkbookUtils.CELL_NO_STATUS + " column is not found.");
-        }
-        for (Row row : sheet) {
-            Cell cell = row.getCell(statusAddress);
-            if (cell.getStringCellValue().trim().equalsIgnoreCase("approved")) {
-                approvedRow.add(cell.getRowIndex());
+        WorkbookUtils.SHEET_NAMES.forEach(sheetName -> {
+            Sheet workingSheet = workbook.getSheet(sheetName);
+            System.out.println();
+            printHeading(workingSheet.getSheetName() + " is processing");
+            List<Integer> approvedRow = WorkbookUtils.getApprovedStatusIndex(workingSheet);
+            if (!approvedRow.isEmpty()) {
+                String approvedSheetName = workingSheet.getSheetName() + "-" + WorkbookUtils.SHEET_APPROVED_SHEET;
+                WorkbookUtils.removeApprovedSheet(workbook, approvedSheetName);
+                Sheet newSheet = workbook.createSheet(approvedSheetName);
+                WorkbookUtils.copyHeadingRow(workingSheet, newSheet);
+                CellCopyPolicy cellCopyPolicy = new CellCopyPolicy().createBuilder().build();
+                printHeading(String.format("Moving rows from sheet: %s, to sheet: %s", workingSheet.getSheetName(), newSheet.getSheetName()));
+                range(0, approvedRow.size())
+                        .boxed()
+                        .forEach(i -> {
+                            int rowIndex = approvedRow.get(i);
+                            Row oldRow = workingSheet.getRow(rowIndex);
+                            ((XSSFRow) newSheet.createRow(i + 1))
+                                    .copyRowFrom(oldRow, cellCopyPolicy);
+                            workingSheet.removeRow(oldRow);
+                            System.out.printf("Row %s is moved\n", rowIndex);
+                        });
             }
-        }
-        if (!approvedRow.isEmpty()) {
-            WorkbookUtils.removeApprovedSheet(workbook);
-            Sheet newSheet = workbook.createSheet(WorkbookUtils.SHEET_APPROVED_SHEET);
-            createHeadingRow(sheet, newSheet);
-            for (int i = 0; i < approvedRow.size(); ++i) {
-                Row oldRow = sheet.getRow(approvedRow.get(i));
-                Row newRow = newSheet.createRow(i + 1);
-                int j = 0;
-                for (Cell cell : oldRow) {
-                    Cell newRowCell = newRow.createCell(j++);
-                    if (cell.getCellType() == CellType.STRING) {
-                        newRowCell.setCellValue(cell.getStringCellValue());
-                    } else if (cell.getCellType() == CellType.BOOLEAN) {
-                        newRowCell.setCellValue(cell.getBooleanCellValue());
-                    } else if (cell.getCellType() == CellType.NUMERIC) {
-                        newRowCell.setCellValue(cell.getNumericCellValue());
-                    }
-                }
-            }
-        }
-        approvedRow.stream()
-                .sorted(reverseOrder())
-                .forEach(row -> sheet.removeRow(sheet.getRow(row)));
+//        WorkbookUtils.deleteRows(workingSheet, approvedRow);
+        });
         WorkbookUtils.saveExcelFile(workbook);
     }
 
-    private static void createHeadingRow(Sheet oldSheet, Sheet newSheet) {
-        int i = 0;
-        Row topRow = newSheet.createRow(0);
-        for (Cell cell : oldSheet.getRow(0)) {
-            topRow.createCell(i++).setCellValue(cell.getStringCellValue());
-        }
+    private static void printHeading(String heading) {
+        String border = range(0, heading.length()).mapToObj(i -> "=").collect(Collectors.joining());
+        System.out.println(border);
+        System.out.println(heading);
+        System.out.println(border);
     }
 }
