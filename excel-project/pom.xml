@@ -8,6 +8,12 @@
     <version>1.0-SNAPSHOT</version>
     <name>excel-project</name>
 
+    <properties>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.poi</groupId>
@@ -20,4 +26,50 @@
             <version>5.2.0</version>
         </dependency>
     </dependencies>
+
+    <build>
+        <finalName>excel-process</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <minimizeJar>true</minimizeJar>
+<!--                    <archive>-->
+<!--                        <mainfest>-->
+<!--                            <mainClass>com.sheet.Main</mainClass>-->
+<!--                        </mainfest>-->
+<!--                    </archive>-->
+                    <artifactSet>
+                        <includes>
+                            <include>org.apache.poi:poi</include>
+                            <include>org.apache.poi:poi-ooxml</include>
+                        </includes>
+                    </artifactSet>
+                    <filters>
+                        <filter>
+                            <artifact>*:*</artifact>
+                            <excludes>
+                                <exclude>META-INF/MANIFEST.MF</exclude>
+                                <exclude>META-INF/LICENSE</exclude>
+                                <exclude>META-INF/NOTICE</exclude>
+                                <exclude>META-INF/services/org.apache.poi.extractor.ExtractorProvider</exclude>
+                                <exclude>META-INF/services/org.apache.poi.sl.draw.ImageRenderer</exclude>
+                                <exclude>META-INF/services/org.apache.poi.ss.usermodel.WorkbookProvider</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
